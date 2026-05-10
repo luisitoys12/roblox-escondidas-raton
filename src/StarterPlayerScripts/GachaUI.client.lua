@@ -1,123 +1,132 @@
 -- GachaUI.client.lua
--- Pantalla de resultado al obtener mascota por gacha.
--- Muestra animación con rareza y nombre de la mascota obtenida.
+-- Botones de caja gacha + pantalla animada de resultado.
 
-local Players         = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService    = game:GetService("TweenService")
+local Players            = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
+local ReplicatedStorage  = game:GetService("ReplicatedStorage")
 
-local player          = Players.LocalPlayer
-local playerGui       = player.PlayerGui
+local player    = Players.LocalPlayer
+local playerGui = player.PlayerGui
 
-local GameEvents      = ReplicatedStorage:WaitForChild("GameEvents")
+-- Actualiza estos IDs cuando crees los Developer Products
+local GACHA_COMMON_ID  = 0
+local GACHA_PREMIUM_ID = 0
 
--- Colores por rareza
+local GameEvents  = ReplicatedStorage:WaitForChild("GameEvents")
+local GachaResult = GameEvents:WaitForChild("GachaResult")
+
 local RARITY_COLORS = {
-    ["Común"]      = Color3.fromRGB(180, 180, 180),
-    ["Legendario"] = Color3.fromRGB(255, 200, 0),
-    ["Máximo"]     = Color3.fromRGB(160, 0, 220),
-    ["Ultra"]      = Color3.fromRGB(220, 30, 30),
-    ["Dios"]       = Color3.fromRGB(255, 100, 255),
+    ["Común"]      = Color3.fromRGB(180,180,180),
+    ["Legendario"] = Color3.fromRGB(255,200,0),
+    ["Máximo"]     = Color3.fromRGB(160,0,220),
+    ["Ultra"]      = Color3.fromRGB(220,30,30),
+    ["Dios"]       = Color3.fromRGB(255,100,255),
 }
 
--- Crear GUI
-local gachaGui = Instance.new("ScreenGui", playerGui)
-gachaGui.Name = "GachaUI"
-gachaGui.ResetOnSpawn = false
-gachaGui.DisplayOrder = 99  -- Encima de todo
+-- GUI
+local gui = Instance.new("ScreenGui", playerGui)
+gui.Name = "GachaUI" ; gui.ResetOnSpawn = false
 
-local overlay = Instance.new("Frame", gachaGui)
-overlay.Size             = UDim2.new(1, 0, 1, 0)
-overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-overlay.BackgroundTransparency = 0.3
-overlay.Visible          = false
+-- Botones flotantes
+local btnFrame = Instance.new("Frame", gui)
+btnFrame.Size = UDim2.new(0,130,0,110)
+btnFrame.Position = UDim2.new(1,-140,0.5,-55)
+btnFrame.BackgroundTransparency = 1
 
-local card = Instance.new("Frame", overlay)
-card.Size             = UDim2.new(0, 320, 0, 380)
-card.Position         = UDim2.new(0.5, -160, 0.5, -190)
-card.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
-card.BorderSizePixel  = 0
-card.AnchorPoint      = Vector2.new(0.5, 0.5)
-
-local rarityBorder = Instance.new("UIStroke", card)
-rarityBorder.Thickness = 3
-rarityBorder.Color     = Color3.fromRGB(255, 255, 255)
-
-local rarityLabel = Instance.new("TextLabel", card)
-rarityLabel.Size           = UDim2.new(1, 0, 0, 50)
-rarityLabel.BackgroundTransparency = 1
-rarityLabel.TextColor3     = Color3.fromRGB(255, 255, 255)
-rarityLabel.Text           = "LEGENDARIO"
-rarityLabel.Font           = Enum.Font.GothamBold
-rarityLabel.TextSize       = 22
-rarityLabel.TextXAlignment = Enum.TextXAlignment.Center
-
-local petIcon = Instance.new("ImageLabel", card)
-petIcon.Size            = UDim2.new(0, 160, 0, 160)
-petIcon.Position        = UDim2.new(0.5, -80, 0, 60)
-petIcon.BackgroundTransparency = 1
-petIcon.Image           = "rbxassetid://0"
-
-local petName = Instance.new("TextLabel", card)
-petName.Size           = UDim2.new(1, -20, 0, 40)
-petName.Position       = UDim2.new(0, 10, 0, 230)
-petName.BackgroundTransparency = 1
-petName.TextColor3     = Color3.fromRGB(255, 255, 255)
-petName.Text           = "Nombre"
-petName.Font           = Enum.Font.GothamBold
-petName.TextSize       = 20
-petName.TextXAlignment = Enum.TextXAlignment.Center
-
-local petDesc = Instance.new("TextLabel", card)
-petDesc.Size           = UDim2.new(1, -20, 0, 50)
-petDesc.Position       = UDim2.new(0, 10, 0, 275)
-petDesc.BackgroundTransparency = 1
-petDesc.TextColor3     = Color3.fromRGB(180, 180, 200)
-petDesc.Text           = ""
-petDesc.Font           = Enum.Font.Gotham
-petDesc.TextSize       = 13
-petDesc.TextXAlignment = Enum.TextXAlignment.Center
-petDesc.TextWrapped    = true
-
-local closeBtn = Instance.new("TextButton", card)
-closeBtn.Size           = UDim2.new(0.6, 0, 0, 40)
-closeBtn.Position       = UDim2.new(0.2, 0, 1, -50)
-closeBtn.BackgroundColor3 = Color3.fromRGB(40, 160, 80)
-closeBtn.Text           = "¡Genial!"
-closeBtn.TextColor3     = Color3.fromRGB(255, 255, 255)
-closeBtn.Font           = Enum.Font.GothamBold
-closeBtn.TextSize       = 16
-closeBtn.MouseButton1Click:Connect(function()
-    overlay.Visible = false
-end)
-
--- Escuchar evento de mascota obtenida
-local function waitForEvent()
-    local evt = GameEvents:WaitForChild("PetObtained", 30)
-    if not evt then return end
-
-    evt.OnClientEvent:Connect(function(pet, rarity)
-        local rarityColor = RARITY_COLORS[rarity] or Color3.fromRGB(255,255,255)
-
-        rarityLabel.Text       = rarity:upper()
-        rarityLabel.TextColor3 = rarityColor
-        rarityBorder.Color     = rarityColor
-        petIcon.Image          = pet.icon or "rbxassetid://0"
-        petName.Text           = pet.name
-        petDesc.Text           = pet.description
-
-        overlay.Visible   = true
-        card.Size         = UDim2.new(0, 0, 0, 0)
-        card.Position     = UDim2.new(0.5, 0, 0.5, 0)
-
-        -- Animación de entrada
-        TweenService:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size     = UDim2.new(0, 320, 0, 380),
-            Position = UDim2.new(0.5, -160, 0.5, -190),
-        }):Play()
-    end)
+local function makeBtn(text, color, posY)
+    local b = Instance.new("TextButton", btnFrame)
+    b.Size = UDim2.new(1,0,0,48)
+    b.Position = UDim2.new(0,0,0,posY)
+    b.BackgroundColor3 = color
+    b.Text = text ; b.TextColor3 = Color3.new(1,1,1)
+    b.Font = Enum.Font.GothamBold ; b.TextSize = 13
+    b.TextWrapped = true
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
+    return b
 end
 
-task.spawn(waitForEvent)
-print("[GachaUI] Sistema gacha UI cargado")
+local btnCommon  = makeBtn("🎲 Caja Común\n30 Robux",  Color3.fromRGB(60,60,90),  0)
+local btnPremium = makeBtn("✨ Caja Premium\n80 Robux", Color3.fromRGB(100,30,140), 58)
+
+-- Panel de resultado
+local panel = Instance.new("Frame", gui)
+panel.Size = UDim2.new(0,360,0,280)
+panel.Position = UDim2.new(0.5,-180,0.5,-140)
+panel.BackgroundColor3 = Color3.fromRGB(10,10,25)
+panel.BorderSizePixel = 0
+panel.Visible = false
+Instance.new("UICorner", panel).CornerRadius = UDim.new(0,16)
+
+local banner = Instance.new("Frame", panel)
+banner.Size = UDim2.new(1,0,0,55)
+banner.BackgroundColor3 = Color3.fromRGB(255,200,0)
+banner.BorderSizePixel = 0
+Instance.new("UICorner", banner).CornerRadius = UDim.new(0,16)
+
+local rarityLbl = Instance.new("TextLabel", banner)
+rarityLbl.Size = UDim2.new(1,0,1,0)
+rarityLbl.BackgroundTransparency = 1
+rarityLbl.Font = Enum.Font.GothamBold
+rarityLbl.TextSize = 22
+rarityLbl.TextColor3 = Color3.fromRGB(20,20,20)
+
+local nameLbl = Instance.new("TextLabel", panel)
+nameLbl.Size = UDim2.new(1,-20,0,44)
+nameLbl.Position = UDim2.new(0,10,0,62)
+nameLbl.BackgroundTransparency = 1
+nameLbl.Font = Enum.Font.GothamBold
+nameLbl.TextSize = 26
+nameLbl.TextColor3 = Color3.new(1,1,1)
+nameLbl.TextXAlignment = Enum.TextXAlignment.Center
+
+local bonusLbl = Instance.new("TextLabel", panel)
+bonusLbl.Size = UDim2.new(1,-20,0,36)
+bonusLbl.Position = UDim2.new(0,10,0,112)
+bonusLbl.BackgroundTransparency = 1
+bonusLbl.Font = Enum.Font.Gotham
+bonusLbl.TextSize = 16
+bonusLbl.TextColor3 = Color3.fromRGB(180,255,160)
+bonusLbl.TextXAlignment = Enum.TextXAlignment.Center
+
+local okBtn = Instance.new("TextButton", panel)
+okBtn.Size = UDim2.new(0.6,0,0,44)
+okBtn.Position = UDim2.new(0.2,0,1,-56)
+okBtn.BackgroundColor3 = Color3.fromRGB(40,160,80)
+okBtn.Text = "¡Genial!"
+okBtn.TextColor3 = Color3.new(1,1,1)
+okBtn.Font = Enum.Font.GothamBold
+okBtn.TextSize = 18
+Instance.new("UICorner", okBtn).CornerRadius = UDim.new(0,8)
+okBtn.MouseButton1Click:Connect(function() panel.Visible = false end)
+
+-- Lógica botones
+btnCommon.MouseButton1Click:Connect(function()
+    if GACHA_COMMON_ID ~= 0 then
+        MarketplaceService:PromptProductPurchase(player, GACHA_COMMON_ID)
+    end
+end)
+btnPremium.MouseButton1Click:Connect(function()
+    if GACHA_PREMIUM_ID ~= 0 then
+        MarketplaceService:PromptProductPurchase(player, GACHA_PREMIUM_ID)
+    end
+end)
+
+-- Mostrar resultado
+GachaResult.OnClientEvent:Connect(function(pet)
+    local color = RARITY_COLORS[pet.rarity] or Color3.fromRGB(200,200,200)
+    banner.BackgroundColor3 = color
+    rarityLbl.Text = string.upper(pet.rarity)
+    nameLbl.Text   = pet.name
+    local b = "Bonus: "
+    if     pet.bonus.type == "coinMultiplier" then b = b.."x"..pet.bonus.value.." Monedas 🪙"
+    elseif pet.bonus.type == "speed"          then b = b.."+"..pet.bonus.value.." Velocidad ⚡"
+    elseif pet.bonus.type == "stealth"        then b = b.."Invisibilidad "..math.floor((1-pet.bonus.value)*100).."% 👻"
+    elseif pet.bonus.type == "allBonus"       then b = b.."TODO x"..pet.bonus.value.." 🌟"
+    elseif pet.bonus.type == "godMode"        then b = b.."¡MODO DIOS! 💫" end
+    bonusLbl.Text = b
+    panel.Visible = true
+    panel:TweenPosition(UDim2.new(0.5,-180,0.5,-140),
+        Enum.EasingDirection.Out, Enum.EasingStyle.Bounce, 0.5, true)
+end)
+
+print("[GachaUI] Listo")

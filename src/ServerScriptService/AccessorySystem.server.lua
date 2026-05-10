@@ -1,171 +1,149 @@
 -- AccessorySystem.server.lua
--- Gestiona equipar/desequipar accesorios y ropa en el personaje
+-- Maneja equipar/desequipar accesorios y ropa en el personaje.
+-- Valida que el jugador posea el item antes de equiparlo.
 
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local AccessoryData     = require(ReplicatedStorage:WaitForChild("AccessoryData"))
+local ClothingData      = require(ReplicatedStorage:WaitForChild("ClothingData"))
+local GameEvents        = ReplicatedStorage:WaitForChild("GameEvents")
 
-local AccessoryData = require(ReplicatedStorage:WaitForChild("AccessoryData"))
-local ClothingData  = require(ReplicatedStorage:WaitForChild("ClothingData"))
-local GameEvents    = ReplicatedStorage:WaitForChild("GameEvents")
+-- Inventarios en memoria [userId] = { accessories={}, clothing={} }
+local inventories = {}
 
--- RemoteFunctions
-local EquipAccessory  = Instance.new("RemoteFunction", GameEvents)
-EquipAccessory.Name   = "EquipAccessory"
-local EquipClothing   = Instance.new("RemoteFunction", GameEvents)
-EquipClothing.Name    = "EquipClothing"
-local GetWardrobe     = Instance.new("RemoteFunction", GameEvents)
-GetWardrobe.Name      = "GetWardrobe"
-
--- Guardar equipamiento en memoria
-local playerWardrobe = {}  -- [userId] = { hat=id, face=id, back=id, trail=id, shirt=id, pants=id }
-
-local function getWardrobe(player)
-    if not playerWardrobe[player.UserId] then
-        playerWardrobe[player.UserId] = {}
+local function getInventory(player)
+    if not inventories[player.UserId] then
+        inventories[player.UserId] = { accessories = {}, clothing = {} }
     end
-    return playerWardrobe[player.UserId]
+    return inventories[player.UserId]
 end
 
--- Aplicar accesorio al personaje
-local function applyAccessory(player, accessoryId)
+local function hasItem(player, itemId)
+    local inv = getInventory(player)
+    for _, id in ipairs(inv.accessories) do
+        if id == itemId then return true end
+    end
+    for _, id in ipairs(inv.clothing) do
+        if id == itemId then return true end
+    end
+    return false
+end
+
+-- Equipar accesorio en el personaje
+local function equipAccessory(player, accessoryId)
     local char = player.Character
-    if not char then return false end
+    if not char then return false, "Sin personaje" end
 
-    -- Buscar data del accesorio
-    local accData = nil
-    for _, a in ipairs(AccessoryData) do
-        if a.id == accessoryId then accData = a break end
-    end
-    if not accData then return false end
-
-    -- Remover accesorio anterior del mismo slot
-    local slot = accData.slot
-    for _, child in ipairs(char:GetChildren()) do
-        if child:IsA("Accessory") and child:GetAttribute("Slot") == slot then
-            child:Destroy()
-        end
-    end
-
-    -- Crear nuevo accesorio
-    local acc = Instance.new("Accessory")
-    acc:SetAttribute("Slot", slot)
-    acc.Name = accData.name
-
-    local handle = Instance.new("Part", acc)
-    handle.Name = "Handle"
-    handle.Size = Vector3.new(1,1,1)
-
-    if accData.meshId then
-        local mesh = Instance.new("SpecialMesh", handle)
-        mesh.MeshId    = accData.meshId
-        mesh.TextureId = accData.textureId or ""
-    end
-
-    -- Trails como Attachment + Trail
-    if slot == "Trail" and accData.particleId then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local att0 = Instance.new("Attachment", hrp)
-            att0.Name = "TrailAtt0"
-            local att1 = Instance.new("Attachment", hrp)
-            att1.Name = "TrailAtt1"
-            att1.Position = Vector3.new(0,-2,0)
-            local trail = Instance.new("Trail", hrp)
-            trail.Attachment0 = att0
-            trail.Attachment1 = att1
-            trail.Lifetime    = 0.5
-            trail.MinLength   = 0
-        end
-        return true
-    end
-
-    acc.Parent = char
-    return true
-end
-
--- Aplicar ropa al personaje
-local function applyClothing(player, clothingId)
-    local char = player.Character
-    if not char then return false end
-
-    local clothData = nil
-    for _, c in ipairs(ClothingData) do
-        if c.id == clothingId then clothData = c break end
-    end
-    if not clothData then return false end
-
-    -- Verificar gamepass si aplica
-    if clothData.requiresGamepass then
-        local hasPass = player:GetAttribute("HasVIP") or false
-        if not hasPass then
-            return false, "Requiere Gamepass VIP"
-        end
-    end
-
-    if clothData.type == "Shirt" then
-        local shirt = char:FindFirstChildOfClass("Shirt")
-        if not shirt then
-            shirt = Instance.new("Shirt", char)
-        end
-        shirt.ShirtTemplate = clothData.shirtTemplate
-    elseif clothData.type == "Pants" then
-        local pants = char:FindFirstChildOfClass("Pants")
-        if not pants then
-            pants = Instance.new("Pants", char)
-        end
-        pants.PantsTemplate = clothData.pantsTemplate
-    elseif clothData.type == "Outfit" then
-        -- Aplicar cada pieza del outfit
-        for _, itemId in ipairs(clothData.items) do
-            applyClothing(player, itemId)
-        end
-    end
-    return true
-end
-
--- Handlers remotos
-EquipAccessory.OnServerInvoke = function(player, accessoryId)
-    local owned = player:GetAttribute("OwnedAccessories") or ""
-    if not string.find(owned, accessoryId) then
-        return { success=false, message="No tienes este accesorio" }
-    end
-    local ok = applyAccessory(player, accessoryId)
-    if ok then
-        getWardrobe(player).hat = accessoryId
-    end
-    return { success=ok, message=ok and "¡Equipado!" or "Error al equipar" }
-end
-
-EquipClothing.OnServerInvoke = function(player, clothingId)
-    local owned = player:GetAttribute("OwnedClothing") or ""
-    if not string.find(owned, clothingId) then
-        return { success=false, message="No tienes esta ropa" }
-    end
-    local ok, msg = applyClothing(player, clothingId)
-    return { success=ok, message=msg or (ok and "¡Equipado!" or "Error") }
-end
-
-GetWardrobe.OnServerInvoke = function(player)
-    return getWardrobe(player)
-end
-
--- Re-aplicar equipo al respawnear
-Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function()
-        task.wait(1)
-        local wardrobe = getWardrobe(player)
-        for slot, itemId in pairs(wardrobe) do
-            if slot == "shirt" or slot == "pants" then
-                applyClothing(player, itemId)
+    for _, acc in ipairs(AccessoryData) do
+        if acc.id == accessoryId then
+            if acc.slot == "Trail" then
+                -- Manejar estelas con ParticleEmitter en HRP
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    -- Remover estela anterior del mismo slot
+                    for _, child in ipairs(hrp:GetChildren()) do
+                        if child:GetAttribute("TrailEffect") then child:Destroy() end
+                    end
+                    local particle = Instance.new("ParticleEmitter", hrp)
+                    particle:SetAttribute("TrailEffect", true)
+                    particle.Texture = acc.particleId or "rbxasset://textures/particles/sparkles_main.dds"
+                    particle.Rate = 50
+                    particle.Lifetime = NumberRange.new(0.5, 1)
+                    particle.Speed = NumberRange.new(5)
+                end
             else
-                applyAccessory(player, itemId)
+                -- Remover accesorio anterior del mismo slot
+                for _, child in ipairs(char:GetChildren()) do
+                    if child:IsA("Accessory") and child:GetAttribute("Slot") == acc.slot then
+                        child:Destroy()
+                    end
+                end
+                -- Equipar nuevo accesorio (assetId debe estar en la toolbox)
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if humanoid and acc.assetId and acc.assetId ~= "rbxassetid://0" then
+                    local InsertService = game:GetService("InsertService")
+                    local ok, result = pcall(function()
+                        return InsertService:LoadAsset(tonumber(acc.assetId:match("%d+")))
+                    end)
+                    if ok and result then
+                        local accModel = result:FindFirstChildOfClass("Accessory")
+                        if accModel then
+                            accModel:SetAttribute("Slot", acc.slot)
+                            humanoid:AddAccessory(accModel)
+                        end
+                    end
+                end
             end
+            player:SetAttribute("EquippedAcc_" .. acc.slot, accessoryId)
+            return true, "Accesorio equipado: " .. acc.name
         end
-    end)
+    end
+    return false, "Accesorio no encontrado"
+end
+
+-- Equipar ropa (camisa/pantalón)
+local function equipClothing(player, clothingId)
+    local char = player.Character
+    if not char then return false, "Sin personaje" end
+
+    for _, cloth in ipairs(ClothingData) do
+        if cloth.id == clothingId then
+            if cloth.type == "Shirt" or cloth.type == "Outfit" then
+                local shirt = char:FindFirstChildOfClass("Shirt")
+                    or Instance.new("Shirt", char)
+                shirt.ShirtTemplate = cloth.shirtId or ""
+            end
+            if cloth.type == "Pants" or cloth.type == "Outfit" then
+                local pants = char:FindFirstChildOfClass("Pants")
+                    or Instance.new("Pants", char)
+                pants.PantsTemplate = cloth.pantsId or ""
+            end
+            player:SetAttribute("EquippedClothing", clothingId)
+            return true, "Ropa equipada: " .. cloth.name
+        end
+    end
+    return false, "Ropa no encontrada"
+end
+
+-- RemoteFunctions para el cliente
+local EquipItem = Instance.new("RemoteFunction", GameEvents)
+EquipItem.Name  = "EquipItem"
+EquipItem.OnServerInvoke = function(player, itemType, itemId)
+    if not hasItem(player, itemId) then
+        -- Intentar comprar primero si tiene monedas
+        return { success = false, message = "No posees este item. Cómpralo en la tienda." }
+    end
+    if itemType == "accessory" then
+        local ok, msg = equipAccessory(player, itemId)
+        return { success = ok, message = msg }
+    elseif itemType == "clothing" then
+        local ok, msg = equipClothing(player, itemId)
+        return { success = ok, message = msg }
+    end
+    return { success = false, message = "Tipo desconocido" }
+end
+
+-- Exponer funciones globales
+_G.EquipAccessory  = equipAccessory
+_G.EquipClothing   = equipClothing
+_G.GetInventory    = getInventory
+_G.AddToInventory  = function(player, itemType, itemId)
+    local inv = getInventory(player)
+    local list = itemType == "accessory" and inv.accessories or inv.clothing
+    for _, id in ipairs(list) do
+        if id == itemId then return end  -- ya lo tiene
+    end
+    table.insert(list, itemId)
+end
+
+Players.PlayerAdded:Connect(function(player)
+    inventories[player.UserId] = { accessories = {}, clothing = {} }
+    -- TODO: cargar inventario desde DataStore
 end)
 
--- Exponer globalmente
-_G.ApplyAccessory = applyAccessory
-_G.ApplyClothing  = applyClothing
+Players.PlayerRemoving:Connect(function(player)
+    -- TODO: guardar inventario en DataStore
+    inventories[player.UserId] = nil
+end)
 
 print("[AccessorySystem] Sistema de accesorios y ropa iniciado")

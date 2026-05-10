@@ -1,149 +1,134 @@
 -- MonetizationSystem.server.lua
--- Maneja Gamepasses y Developer Products (compras de monedas + gacha de mascotas)
--- IMPORTANTE: Reemplaza los IDs con los reales de tu juego en Roblox
+-- Gamepasses, Developer Products y sistema Gacha
 
 local Players             = game:GetService("Players")
 local MarketplaceService  = game:GetService("MarketplaceService")
 local ReplicatedStorage   = game:GetService("ReplicatedStorage")
-local Config              = require(ReplicatedStorage:WaitForChild("GameConfig"))
-local PetData             = require(ReplicatedStorage:WaitForChild("PetData"))
 
--- ══════════════════════════════════════════
--- IDs DE GAMEPASSES — reemplaza con los tuyos
--- Créalos en: create.roblox.com → tu juego → Monetization → Passes
--- ══════════════════════════════════════════
-local GAMEPASSES = {
-    VIP_MOUSE      = 0,   -- Ratón VIP (150 Robux) — prioridad de ser Ratón
-    SPEED_BOOST    = 0,   -- Speed Boost (100 Robux) — +5 velocidad permanente
-    SKIN_PACK      = 0,   -- Skin Pack (200 Robux) — skin exclusiva
-    RADAR_PERM     = 0,   -- Radar Permanente (250 Robux) — herramienta radar gratis
-    VIP_BADGE      = 0,   -- VIP Badge (75 Robux) — nombre dorado + x1.5 monedas
-}
+local Config    = require(ReplicatedStorage:WaitForChild("GameConfig"))
+local PetData   = require(ReplicatedStorage:WaitForChild("PetData"))
+local GameEvents = ReplicatedStorage:WaitForChild("GameEvents")
 
--- ══════════════════════════════════════════
--- IDs DE DEVELOPER PRODUCTS — reemplaza con los tuyos
--- Créalos en: create.roblox.com → tu juego → Monetization → Developer Products
--- ══════════════════════════════════════════
-local PRODUCTS = {
-    COINS_500      = 0,   -- Pack 500 monedas (25 Robux)
-    COINS_1500     = 0,   -- Pack 1500 monedas (65 Robux)
-    COINS_5000     = 0,   -- Pack 5000 monedas (180 Robux)
-    PET_RANDOM     = 0,   -- Mascota Aleatoria Gacha (50 Robux)
-    SHIELD_ROUND   = 0,   -- Escudo de ronda (30 Robux)
-}
+-- RemoteFunction para abrir la tienda Robux desde el cliente
+local PromptGamepass  = Instance.new("RemoteEvent", GameEvents)
+PromptGamepass.Name   = "PromptGamepass"
+local PromptProduct   = Instance.new("RemoteEvent", GameEvents)
+PromptProduct.Name    = "PromptProduct"
 
--- ══ Aplicar beneficios de Gamepass al unirse ══
-local function applyGamepasses(player)
-    -- VIP Badge
-    local ok, ownsVIP = pcall(MarketplaceService.UserOwnsGamePassAsync,
-        MarketplaceService, player.UserId, GAMEPASSES.VIP_BADGE)
-    if ok and ownsVIP then
-        player:SetAttribute("HasVIPBadge", true)
-        player:SetAttribute("CoinMultiplier", 1.5)
-        print("[Monetization] " .. player.Name .. " tiene VIP Badge")
-    end
-
-    -- Speed Boost
-    local ok2, ownsSpeed = pcall(MarketplaceService.UserOwnsGamePassAsync,
-        MarketplaceService, player.UserId, GAMEPASSES.SPEED_BOOST)
-    if ok2 and ownsSpeed then
-        player:SetAttribute("SpeedPassBonus", 5)
-        print("[Monetization] " .. player.Name .. " tiene Speed Boost")
-    end
-
-    -- Radar Permanente
-    local ok3, ownsRadar = pcall(MarketplaceService.UserOwnsGamePassAsync,
-        MarketplaceService, player.UserId, GAMEPASSES.RADAR_PERM)
-    if ok3 and ownsRadar then
-        player:SetAttribute("HasRadarPass", true)
-        print("[Monetization] " .. player.Name .. " tiene Radar Permanente")
-    end
-
-    -- VIP Mouse (prioridad de ser Ratón — se procesa en GameManager)
-    local ok4, ownsVIPMouse = pcall(MarketplaceService.UserOwnsGamePassAsync,
-        MarketplaceService, player.UserId, GAMEPASSES.VIP_MOUSE)
-    if ok4 and ownsVIPMouse then
-        player:SetAttribute("HasMousePass", true)
-        print("[Monetization] " .. player.Name .. " tiene Ratón VIP")
-    end
-end
-
--- ══ Procesar Developer Products (compras repetibles) ══
-MarketplaceService.ProcessReceipt = function(receiptInfo)
-    local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
-    if not player then
-        return Enum.ProductPurchaseDecision.NotProcessedYet
-    end
-
-    local productId = receiptInfo.ProductId
-
-    -- Pack 500 monedas
-    if productId == PRODUCTS.COINS_500 then
-        if _G.AddCoins then _G.AddCoins(player, 500) end
-        print("[Monetization] " .. player.Name .. " compró 500 monedas")
-        return Enum.ProductPurchaseDecision.PurchaseGranted
-    end
-
-    -- Pack 1500 monedas
-    if productId == PRODUCTS.COINS_1500 then
-        if _G.AddCoins then _G.AddCoins(player, 1500) end
-        print("[Monetization] " .. player.Name .. " compró 1500 monedas")
-        return Enum.ProductPurchaseDecision.PurchaseGranted
-    end
-
-    -- Pack 5000 monedas
-    if productId == PRODUCTS.COINS_5000 then
-        if _G.AddCoins then _G.AddCoins(player, 5000) end
-        print("[Monetization] " .. player.Name .. " compró 5000 monedas")
-        return Enum.ProductPurchaseDecision.PurchaseGranted
-    end
-
-    -- Mascota Aleatoria Gacha
-    if productId == PRODUCTS.PET_RANDOM then
-        local pet, rarity = PetData.GetRandom()
-        if pet then
-            player:SetAttribute("EquippedPet", pet.id)
-            -- Aplicar bonus de la mascota obtenida
-            if pet.bonus.type == "coinMultiplier" then
-                local current = player:GetAttribute("CoinMultiplier") or 1
-                player:SetAttribute("CoinMultiplier", math.max(current, pet.bonus.value))
-            elseif pet.bonus.type == "speed" then
-                player:SetAttribute("PetSpeedBonus", pet.bonus.value)
-            end
-            -- Notificar al cliente qué mascota salió
-            local GameEvents = ReplicatedStorage:FindFirstChild("GameEvents")
-            if GameEvents then
-                local evt = GameEvents:FindFirstChild("PetObtained")
-                if not evt then
-                    evt = Instance.new("RemoteEvent", GameEvents)
-                    evt.Name = "PetObtained"
-                end
-                evt:FireClient(player, pet, rarity)
-            end
-            print("[Monetization] " .. player.Name .. " obtuvo mascota [" .. rarity .. "]: " .. pet.name)
-        end
-        return Enum.ProductPurchaseDecision.PurchaseGranted
-    end
-
-    -- Escudo de ronda
-    if productId == PRODUCTS.SHIELD_ROUND then
-        player:SetAttribute("ShieldRounds",
-            (player:GetAttribute("ShieldRounds") or 0) + 1)
-        print("[Monetization] " .. player.Name .. " compró Escudo de Ronda")
-        return Enum.ProductPurchaseDecision.PurchaseGranted
-    end
-
-    return Enum.ProductPurchaseDecision.NotProcessedYet
-end
-
--- Aplicar gamepasses al unirse
-Players.PlayerAdded:Connect(function(player)
-    task.wait(2)
-    applyGamepasses(player)
+-- El cliente pide abrir un prompt de compra
+PromptGamepass.OnServerEvent:Connect(function(player, passId)
+    MarketplaceService:PromptGamePassPurchase(player, passId)
+end)
+PromptProduct.OnServerEvent:Connect(function(player, productId)
+    MarketplaceService:PromptProductPurchase(player, productId)
 end)
 
-for _, player in ipairs(Players:GetPlayers()) do
-    applyGamepasses(player)
+-- ══ Verificar Gamepasses al unirse ══
+local function checkGamepasses(player)
+    local gp = Config.Gamepasses
+    local function check(id, attr)
+        if id == 0 then return end
+        local ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, id)
+        if ok and owns then
+            player:SetAttribute(attr, true)
+        end
+    end
+    check(gp.VIP,         "HasVIP")
+    check(gp.SpeedBoost,  "HasSpeedBoost")
+    check(gp.SkinPack,    "HasSkinPack")
+    check(gp.RadarPerm,   "HasRadarPerm")
+    check(gp.DoubleCoins, "HasDoubleCoins")
+    check(gp.MouseAlways, "HasMouseAlways")
+    check(gp.ExtraSlots,  "HasExtraSlots")
+    -- Aplicar beneficios inmediatos
+    if player:GetAttribute("HasDoubleCoins") then
+        player:SetAttribute("CoinMultiplier", 2)
+    end
+    if player:GetAttribute("HasSpeedBoost") then
+        player:SetAttribute("PetSpeedBonus", (player:GetAttribute("PetSpeedBonus") or 0) + 3)
+    end
 end
+
+-- ══ Gacha — Mascota Aleatoria ══
+local function rollPet()
+    local roll = math.random(100)
+    local cumulative = 0
+    -- Agrupar mascotas por rareza
+    local rarityPets = {}
+    for _, pet in ipairs(PetData) do
+        if not rarityPets[pet.rarity] then rarityPets[pet.rarity] = {} end
+        table.insert(rarityPets[pet.rarity], pet)
+    end
+    -- Rarezas ordenadas por probabilidad
+    local order = { "Común", "Legendario", "Máximo", "Ultra", "Dios" }
+    local chances = { Común=60, Legendario=25, Máximo=10, Ultra=4, Dios=1 }
+    for _, rarityName in ipairs(order) do
+        cumulative = cumulative + (chances[rarityName] or 0)
+        if roll <= cumulative then
+            local pets = rarityPets[rarityName] or {}
+            if #pets > 0 then
+                return pets[math.random(#pets)]
+            end
+        end
+    end
+    return PetData[1]  -- fallback
+end
+
+-- ══ Procesar compras de Developer Products ══
+local receiptHandlers = {}
+
+receiptHandlers[Config.Products.Coins500]  = function(player) if _G.AddCoins then _G.AddCoins(player, 500)  end end
+receiptHandlers[Config.Products.Coins1500] = function(player) if _G.AddCoins then _G.AddCoins(player, 1500) end end
+receiptHandlers[Config.Products.Coins5000] = function(player) if _G.AddCoins then _G.AddCoins(player, 5000) end end
+receiptHandlers[Config.Products.Shield]    = function(player)
+    player:SetAttribute("ShieldActive", true)
+    task.delay(300, function() player:SetAttribute("ShieldActive", false) end)
+end
+receiptHandlers[Config.Products.RandomPet] = function(player)
+    local pet = rollPet()
+    player:SetAttribute("EquippedPet", pet.id)
+    -- Notificar al cliente qué mascota salió
+    local PetRolled = GameEvents:FindFirstChild("PetRolled")
+    if PetRolled then PetRolled:FireClient(player, pet) end
+    print("[Monetization] " .. player.Name .. " obtuvo: " .. pet.name .. " (" .. pet.rarity .. ")")
+end
+receiptHandlers[Config.Products.RandomAccess] = function(player)
+    local AccessoryData = require(ReplicatedStorage:WaitForChild("AccessoryData"))
+    local acc = AccessoryData[math.random(#AccessoryData)]
+    local owned = player:GetAttribute("OwnedAccessories") or ""
+    player:SetAttribute("OwnedAccessories", owned .. "|" .. acc.id)
+    print("[Monetization] " .. player.Name .. " obtuvo accesorio: " .. acc.name)
+end
+
+-- Notificación de mascota ganada
+local PetRolled = Instance.new("RemoteEvent", GameEvents)
+PetRolled.Name  = "PetRolled"
+
+MarketplaceService.ProcessReceipt = function(receiptInfo)
+    local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
+    if player then
+        local handler = receiptHandlers[receiptInfo.ProductId]
+        if handler then
+            local ok, err = pcall(handler, player)
+            if not ok then
+                warn("[Monetization] Error procesando producto: " .. tostring(err))
+                return Enum.ProductPurchaseDecision.NotProcessedYet
+            end
+        end
+    end
+    return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
+MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
+    if purchased then
+        checkGamepasses(player)
+        print("[Monetization] " .. player.Name .. " compró gamepass: " .. passId)
+    end
+end)
+
+Players.PlayerAdded:Connect(function(player)
+    task.wait(2)
+    checkGamepasses(player)
+end)
 
 print("[Monetization] Sistema de monetización iniciado")

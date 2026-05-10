@@ -1,50 +1,94 @@
--- GameConfig.lua
--- Configuración central del juego. Modifica estos valores para balancear.
-
+-- GameConfig.lua v2.0 — Configuración central expandida
 local Config = {}
 
--- ══ Tiempos (segundos) ══
-Config.LobbyTime       = 30    -- Tiempo de espera en lobby
-Config.HideTime        = 15    -- Tiempo que tienen los escondidos para ocultarse
-Config.RoundTime       = 120   -- Duración de la ronda de juego
-Config.ResultsTime     = 10    -- Pantalla de resultados
+-- ══ Tiempos ══
+Config.LobbyTime        = 30
+Config.HideTime         = 15
+Config.RoundTime        = 120
+Config.ResultsTime      = 10
+Config.IntermissionTime = 20
 
 -- ══ Jugadores ══
-Config.MinPlayers      = 2     -- Mínimo para iniciar partida
-Config.MaxPlayers      = 12    -- Máximo por servidor
+Config.MinPlayers       = 2
+Config.MaxPlayers       = 12
 
 -- ══ Economía ══
-Config.CoinsPerCapture = 10    -- Monedas que gana el Ratón por capturar
-Config.CoinsPerSurvive = 20    -- Monedas que gana el Escondido al sobrevivir
-Config.CoinsPerRound   = 5     -- Monedas base por participar en una ronda
+Config.CoinsPerCapture  = 10
+Config.CoinsPerSurvive  = 20
+Config.CoinsPerRound    = 5
+Config.DailyLoginBonus  = 100
 
--- ══ Rangos ELO ══
-Config.EloGainWin      = 25    -- Puntos ELO ganados al ganar
-Config.EloLoseLose     = 15    -- Puntos ELO perdidos al perder
-Config.StartingElo     = 1000  -- ELO inicial de nuevo jugador
+-- ══ ELO ══
+Config.EloGainWin       = 25
+Config.EloLoseLose      = 15
+Config.StartingElo      = 1000
 
 Config.Ranks = {
-    { name = "Ratoncillo",  minElo = 0    },
-    { name = "Ratón",       minElo = 1000 },
-    { name = "Rata Ágil",   minElo = 1200 },
-    { name = "Cazador",     minElo = 1500 },
-    { name = "Depredador",  minElo = 1800 },
-    { name = "Leyenda",     minElo = 2100 },
+    { name="Ratoncillo",  minElo=0,    icon="⚪" },
+    { name="Ratón",       minElo=1000, icon="🐭" },
+    { name="Rata Ágil",   minElo=1200, icon="⚡" },
+    { name="Cazador",     minElo=1500, icon="🔍" },
+    { name="Depredador",  minElo=1800, icon="🔥" },
+    { name="Leyenda",     minElo=2100, icon="👑" },
+    { name="Dios",        minElo=2500, icon="✨" },
 }
 
 -- ══ Velocidades ══
-Config.MouseSpeed      = 20    -- Velocidad del Ratón
-Config.HiderSpeed      = 16    -- Velocidad del Escondido
-Config.DefaultSpeed    = 16    -- Velocidad base
+Config.MouseSpeed       = 20
+Config.HiderSpeed       = 16
+Config.DefaultSpeed     = 16
+Config.CrouchSpeed      = 8
+Config.SprintMultiplier = 1.4
 
 -- ══ Roles ══
-Config.MouseTag        = "Mouse"   -- Tag del rol Ratón
-Config.HiderTag        = "Hider"   -- Tag del rol Escondido
-Config.CaughtTag       = "Caught"  -- Tag de capturado
+Config.MouseTag         = "Mouse"
+Config.HiderTag         = "Hider"
+Config.CaughtTag        = "Caught"
+Config.SpectatorTag     = "Spectator"
 
--- ══ Efectos ══
-Config.MouseColor      = Color3.fromRGB(220, 50, 50)   -- Color del nombre del Ratón
-Config.HiderColor      = Color3.fromRGB(50, 180, 255)  -- Color del nombre del Escondido
-Config.CaughtColor     = Color3.fromRGB(150, 150, 150) -- Color del nombre de capturado
+-- ══ Colores de rol ══
+Config.MouseColor       = Color3.fromRGB(220,50,50)
+Config.HiderColor       = Color3.fromRGB(50,180,255)
+Config.CaughtColor      = Color3.fromRGB(150,150,150)
+
+-- ══ Mapas disponibles ══
+Config.Maps = {
+    { id="city_night",   name="Ciudad Nocturna", minPlayers=2,  icon="🌆" },
+    { id="sewer",        name="Las Alcantarillas", minPlayers=3, icon="🐀" },
+    { id="haunted",      name="Casa Embrujada",  minPlayers=2,  icon="👻" },
+    { id="rooftops",     name="Azoteas",         minPlayers=4,  icon="🏙️" },
+    { id="forest",       name="Bosque Oscuro",   minPlayers=2,  icon="🌲" },
+    { id="lab",          name="Laboratorio",     minPlayers=3,  icon="🔬" },
+}
+
+-- ══ Rarezas ══
+Config.Rarities = {
+    { name="Común",      color=Color3.fromRGB(180,180,180), chance=60 },
+    { name="Legendario", color=Color3.fromRGB(255,200,0),   chance=25 },
+    { name="Máximo",     color=Color3.fromRGB(160,0,220),   chance=10 },
+    { name="Ultra",      color=Color3.fromRGB(220,30,30),   chance=4  },
+    { name="Dios",       color=Color3.fromRGB(255,100,255), chance=1  },
+}
+
+-- ══ Gamepass IDs (reemplazar con IDs reales) ══
+Config.Gamepasses = {
+    VIP           = 0,
+    SpeedBoost    = 0,
+    SkinPack      = 0,
+    RadarPerm     = 0,
+    DoubleCoins   = 0,
+    MouseAlways   = 0,
+    ExtraSlots    = 0,
+}
+
+-- ══ Developer Product IDs ══
+Config.Products = {
+    Coins500      = 0,
+    Coins1500     = 0,
+    Coins5000     = 0,
+    RandomPet     = 0,
+    RandomAccess  = 0,
+    Shield        = 0,
+}
 
 return Config

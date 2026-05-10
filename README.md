@@ -1,93 +1,177 @@
-# 🐭 Las Escondidas + Huye del Ratón — Roblox Game
+# 🐭 Escondidas + Huye del Ratón
+> **Demo Privada — Acceso restringido al grupo**
 
-> Un juego de escondidas donde 1 jugador es el **Ratón** y los demás se **esconden**. El Ratón debe atrapar a todos antes de que acabe el tiempo. ¡Con monedas, mascotas, herramientas y partidas clasificadas!
-
----
-
-## 🎮 Mecánicas Principales
-
-| Rol | Descripción |
-|-----|-------------|
-| 🐭 **Ratón** | Corre por el mapa buscando a los escondidos. Puede usar herramientas. |
-| 🙈 **Escondido** | Se esconde antes de que acabe el countdown. Puede usar habilidades. |
-
-### Sistemas incluidos
-- 🪙 **Monedas** — se ganan al sobrevivir / atrapar jugadores
-- 🐾 **Mascotas** — compradas con monedas, dan bonuses pasivos
-- 🛠️ **Herramientas** — para el Ratón (linterna, trampa) y Escondidos (señuelo, humo)
-- 📊 **Partidas Clasificadas** — ELO simple: ganar sube, perder baja
-- ⏱️ **Lobby / Countdown / Juego / Resultados** — ciclo completo de rondas
+Juego de Roblox que combina las escondidas clásicas con mecánica de persecución.  
+Un jugador es el **Ratón** y todos los demás deben **esconderse y sobrevivir**.
 
 ---
 
-## 📁 Estructura del Proyecto
+## 🎮 ¿Cómo se juega?
+
+| Rol | Objetivo | Habilidades |
+|---|---|---|
+| 🐭 **Ratón** | Atrapar a todos los escondidos antes de que acabe el tiempo | Mayor velocidad, Radar, Trampa |
+| 🙈 **Escondido** | Sobrevivir hasta que termine el tiempo | Señuelo, Humo, Dash |
+
+### Fases de cada partida
+1. **Lobby** (30 seg) — Los jugadores eligen mascotas/herramientas
+2. **Escóndete** (20 seg) — Los escondidos buscan lugar, el Ratón espera con los ojos cerrados
+3. **¡A jugar!** — El Ratón caza, los escondidos evaden
+4. **Resultados** — Estadísticas, monedas ganadas y cambios de ELO
+5. **Reinicio automático** → regresa al Lobby
+
+---
+
+## 🏗️ Estructura del proyecto
 
 ```
 roblox-escondidas-raton/
-├── src/
-│   ├── ServerScriptService/
-│   │   ├── GameManager.server.lua       -- Ciclo de la partida
-│   │   ├── RoundSystem.server.lua       -- Roles, tiempo, capturas
-│   │   ├── CoinSystem.server.lua        -- Economía de monedas
-│   │   ├── RankSystem.server.lua        -- ELO / Rango
-│   │   └── DataStore.server.lua        -- Guardado de datos (DataStore2)
-│   ├── ReplicatedStorage/
-│   │   ├── GameConfig.lua              -- Configuración central
-│   │   ├── PetData.lua                 -- Tabla de mascotas
-│   │   └── ToolData.lua               -- Tabla de herramientas
-│   ├── StarterPlayerScripts/
-│   │   ├── GameUI.client.lua           -- HUD: monedas, rol, timer
-│   │   ├── PetUI.client.lua            -- UI de mascotas equipadas
-│   │   └── ShopUI.client.lua          -- Tienda de mascotas/herramientas
-│   └── StarterCharacterScripts/
-│       ├── MouseMovement.client.lua    -- Velocidad extra del Ratón
-│       └── HideMovement.client.lua    -- Mecánica de agacharse al escondido
-├── SETUP.md                           -- Instrucciones de instalación
+├── ServerScriptService/
+│   ├── GameManager.lua        ← Ciclo completo del juego
+│   ├── RoundSystem.lua        ← Detección de capturas
+│   ├── CoinSystem.lua         ← Economía y tienda
+│   ├── RankSystem.lua         ← Sistema ELO (6 rangos)
+│   └── DataStore.lua          ← Guardado persistente
+├── ReplicatedStorage/
+│   ├── GameConfig.lua         ← Todos los parámetros ajustables
+│   ├── PetData.lua            ← 5 mascotas con stats
+│   └── ToolData.lua           ← 6 herramientas
+├── StarterPlayer/
+│   ├── GameUI.lua             ← HUD, timer, monedas
+│   ├── ShopUI.lua             ← Tienda (tecla E)
+│   ├── MouseMovement.lua      ← FOV dinámico del Ratón
+│   └── HideMovement.lua       ← Agacharse (tecla C)
+├── SETUP.md                   ← Instrucciones de instalación
+├── PROMPTS_IMAGENES.md        ← Prompts para thumbnails, camisas, mascotas
 └── README.md
 ```
 
 ---
 
-## 🚀 Instalación en Roblox Studio
+## ⚙️ Instalación rápida
 
-Ver [SETUP.md](./SETUP.md) para instrucciones paso a paso.
+> Ver instrucciones detalladas en [SETUP.md](./SETUP.md)
 
----
-
-## ⚙️ Configuración Rápida
-
-Edita `src/ReplicatedStorage/GameConfig.lua`:
-
-```lua
-Config.RoundTime       = 120   -- segundos de partida
-Config.LobbyTime       = 30    -- segundos en lobby
-Config.HideTime        = 15    -- segundos para esconderse
-Config.MinPlayers      = 2     -- mínimo para iniciar
-Config.MaxPlayers      = 12    -- máximo por servidor
-Config.CoinsPerCapture = 10    -- monedas por atrapar
-Config.CoinsPerSurvive = 20    -- monedas por sobrevivir
-```
+1. Clona este repositorio
+2. Abre **Roblox Studio** y crea un nuevo lugar
+3. Copia cada script a su carpeta correspondiente
+4. Instala **DataStore2** desde la Toolbox de Roblox
+5. En Workspace crea los objetos:
+   - `LobbySpawn` — SpawnLocation del lobby
+   - `MouseSpawn` — SpawnLocation del Ratón
+   - `HiderSpawns` — Folder con múltiples SpawnLocations
+6. Ajusta parámetros en `ReplicatedStorage/GameConfig.lua`
+7. Prueba con **Test → Start Server**
 
 ---
 
-## 📦 Dependencias
+## 💰 Economía de monedas
 
-- [DataStore2](https://devforum.roblox.com/t/datastore2-data-store-caching-and-data-loss-prevention/136317) — instalar en ServerScriptService
-- Roblox Studio (versión actual)
+| Acción | Monedas |
+|---|---|
+| Sobrevivir la ronda completa | +50 |
+| Capturar a un escondido (Ratón) | +30 por captura |
+| Ser el último en sobrevivir | +100 bonus |
+| Victoria como Ratón (todos capturados) | +80 |
+| Derrota | +10 (consuelo) |
+
+> Los multiplicadores de mascota se aplican encima de las cantidades base.
 
 ---
 
-## 🗺️ Roadmap
+## 🐾 Mascotas disponibles
 
-- [ ] Mapa principal (lobby + arena)
+| Mascota | Rareza | Bonus |
+|---|---|---|
+| Mini Ratón | Común | +5% monedas |
+| Gato Fantasma | Legendario | +15% monedas, visión nocturna |
+| Zorro Sombra | Máximo | +25% monedas, dash más corto |
+| Búho Dorado | Ultra | +40% monedas, radar pasivo |
+| Dragón Bebé | Dios | +60% monedas, todos los bonuses |
+
+---
+
+## 🛠️ Herramientas
+
+| Herramienta | Rol | Función |
+|---|---|---|
+| 🔦 Linterna | Ratón | Revela escondidos en el cono de luz |
+| 🪤 Trampa | Ratón | Coloca trampa invisible en el suelo |
+| 📡 Radar | Ratón | Muestra posición de escondidos 5 seg |
+| 🎭 Señuelo | Escondido | Crea una copia falsa del personaje |
+| 💨 Humo | Escondido | Nube que bloquea visión del Ratón |
+| ⚡ Dash | Escondido | Salto rápido de emergencia |
+
+---
+
+## 🏆 Sistema de Rangos (ELO)
+
+| Rango | Puntos ELO | Ícono |
+|---|---|---|
+| Ratoncillo | 0 – 299 | 🐭 |
+| Rata Ágil | 300 – 599 | 🐀 |
+| Cazador | 600 – 999 | 🔍 |
+| Depredador | 1000 – 1499 | ⚡ |
+| Leyenda | 1500 – 1999 | 🏆 |
+| Dios del Escondite | 2000+ | 👑 |
+
+---
+
+## 👥 Testers — Demo Privada
+
+> Agrega aquí los usuarios de Roblox invitados a la demo
+
+- [ ] `Usuario1`
+- [ ] `Usuario2`
+- [ ] `Usuario3`
+- *(añade más según necesites)*
+
+### 📋 Reglas de la demo
+1. **No compartas el link del juego** fuera del grupo
+2. Reporta bugs en los [Issues](../../issues) de este repo
+3. Feedback de gameplay en el canal del grupo
+4. Capturas de pantalla bienvenidas para documentar bugs
+
+---
+
+## 🐛 Reportar bugs
+
+Abre un [Issue](../../issues/new) con:
+- Descripción del bug
+- Pasos para reproducirlo
+- Captura de pantalla (si aplica)
+- Tu usuario de Roblox
+
+---
+
+## 🎨 Assets visuales
+
+Todos los prompts para generar imágenes están en [`PROMPTS_IMAGENES.md`](./PROMPTS_IMAGENES.md):
+- Thumbnail principal (1920×1080)
+- Íconos de gamepasses (512×512)
+- Mascotas por rareza (256×256)
+- Camisas del grupo (585×559)
+- Arte del mapa y loading screen
+- Banner e ícono del grupo
+
+---
+
+## 📅 Roadmap
+
+- [x] Sistema de rondas y roles
+- [x] Economía de monedas
+- [x] Mascotas con bonuses
+- [x] Herramientas por rol
+- [x] Sistema de rangos ELO
+- [x] Guardado de datos (DataStore)
+- [x] Prompts de assets visuales
+- [ ] Mapa base terminado
 - [ ] Animaciones de mascotas
-- [ ] Efectos de partículas para herramientas
-- [ ] Tabla de líderes global
-- [ ] Pases de juego (GamePass)
-- [ ] Evento de temporada / skins
+- [ ] Sistema de trampas con físicas
+- [ ] Tienda de camisas integrada
+- [ ] Leaderboard global
+- [ ] Torneos
 
 ---
 
-## 📝 Licencia
-
-MIT — úsalo libremente para tu juego de Roblox.
+*Demo privada — Grupo Roblox © 2026*
